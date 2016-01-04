@@ -1,0 +1,18 @@
+newmtl VRayMtl2SG
+illum 4
+Kd 0.70 0.70 0.70
+Ka 0.70 0.70 0.70
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl VRayMtl3SG
+illum 4
+Kd 0.70 0.70 0.70
+Ka 0.70 0.70 0.70
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl VRayMtl4SG
+illum 4
+Kd 0.70 0.70 0.70
+Ka 0.70 0.70 0.70
+Tf 1.00 1.00 1.00
+Ni 0.00
