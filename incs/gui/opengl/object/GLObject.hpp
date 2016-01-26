@@ -13,10 +13,8 @@
 #ifndef GLOBJECT_CLASS_HPP
 # define GLOBJECT_CLASS_HPP
 
-# include <libs/GL/glew.h>
-
-# include <gui/opengl/object/GLParser.hpp>
-# include <gui/opengl/object/IGLObject.hpp>
+# include <vector>
+# include <libs/glfw/glfw3.h>
 
 enum e_bo
 {
@@ -32,23 +30,18 @@ enum e_dimension
 	RGBA
 };
 
-class GLObject: public IGLObject
+class GLObject
 {
 	public:
-		GLObject(Model3D & model3D, Camera & camera, GLShader const * shader, char const * objFile);
-		virtual ~GLObject(void);
+		~GLObject(void);
+		static void			indexingBO(std::vector<GLfloat> & bo, std::vector<GLuint> & ebo, e_dimension const & dimensions);
+		static void			generateBO(GLuint & buffer, std::vector<GLfloat> const & bo, int const & size, GLenum type);
+		static void			generateBO(GLuint & buffer, int const & size, GLenum type);
+		static void			setBO(GLuint const & bo, GLint const & sbo, e_dimension const & dimension);
 
-	protected:
-		void				indexingBO(std::vector<GLfloat> & bo, std::vector<GLuint> & ebo, e_dimension const & dimensions);
-		void				generateBO(GLuint & buffer, std::vector<GLfloat> const & bo, int const & size, GLenum type);
-		void				setBO(GLuint const & bo, GLint const & sbo, e_dimension const & dimension);
-
-		GLuint				_vao;
-		GLuint				_vbo;
-		GLuint				_nbo;
-
-		s_obj				_obj;
-		s_mtl				_mtl;
+	private:
+		GLObject(void);
+		
 };
 
 #endif /* ! GLOBJECT_CLASS_HPP */

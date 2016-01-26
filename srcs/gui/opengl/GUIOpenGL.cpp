@@ -6,7 +6,7 @@
 /*   By: qlitzler <qlitzler@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2015/12/20 19:17:19 by qlitzler          #+#    #+#             */
-/*   Updated: 2016/01/03 21:57:58 by qlitzler         ###   ########.fr       */
+/*   Updated: 2016/01/13 16:09:23 by qlitzler         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,18 +16,23 @@
 	Constructors - Destructor
 *******************************************/
 
-GUIOpenGL::GUIOpenGL(Window const & window, Model3D & model3D, Camera & camera, Gomoku & gomoku):
-IGUIModule(window), _model3D(model3D), _camera(camera), _gomoku(gomoku)
+GUIOpenGL::GUIOpenGL(Window const & window, Gomoku & gomoku):
+IGUIModule(window), _gomoku(gomoku)
 {
 	GLwindow();
 	GLcontext();
+	glfwGetFramebufferSize(_glWindow, &_width, &_height);
 	glfwSetKeyCallback(_glWindow, &GUIOpenGL::inputHandler);
 	GUIOpenGL::_GLFW = this;
 }
 
 GUIOpenGL::~GUIOpenGL(void)
 {
-
+	delete _stones[WHITE];
+	delete _stones[BLACK];
+	delete _board;
+	delete _font[FONT10];
+	delete _font[FONT12];
 }
 
 /*******************************************
@@ -50,6 +55,7 @@ void		GUIOpenGL::GLwindow(void)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GL_MINOR);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	// glfwGetPrimaryMonitor()
 	_glWindow = glfwCreateWindow(_window.width, _window.height, _window.name.c_str(), nullptr, nullptr);
 	if (!_glWindow)
 	{
@@ -67,19 +73,20 @@ void		GUIOpenGL::GLcontext(void)
 	{
 		throw std::exception();
 	}
+	glEnable(GL_MULTISAMPLE_ARB);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glDepthFunc(GL_LESS);
-	glFrontFace(GL_CCW); 
-	glBlendFunc(GL_SRC_COLOR, GL_ONE_MINUS_SRC_ALPHA);
-	// glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	glFrontFace(GL_CCW);
 }
 
 void		GUIOpenGL::setup(void)
 {
-	_board = new GLBoard(_model3D, _camera, new GLShaderBoard());
-	_stones[WHITE] = new GLStoneWhite(_model3D, _camera, new GLShaderStone());
-	_stones[BLACK] = new GLStoneBlack(_model3D, _camera, new GLShaderStone());
+	_board = static_cast<GLBoard *>(GLFactory::newInstance(GL_BOARD));
+	_stones[WHITE] = static_cast<GLStone *>(GLFactory::newInstance(GL_STONE_WHITE));
+	_stones[BLACK] = static_cast<GLStone *>(GLFactory::newInstance(GL_STONE_BLACK));
+	_font[FONT10] = static_cast<GLFont *>(GLFactory::newInstance(GL_FONT10));
+	_font[FONT12] = static_cast<GLFont *>(GLFactory::newInstance(GL_FONT12));
 }
 
 int			GUIOpenGL::render(void)
@@ -88,19 +95,18 @@ int			GUIOpenGL::render(void)
 	{
 		return (ESC);
 	}
-	clearCalls();
-	glClearColor(0.01f, 0.01f, 0.01f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	clearCalls();
 
-	if (_gomoku.getVictory() == NONE) {
+	if (_gomoku.getVictory() == NONE && _gomoku.getMode() != REPLAY) {
 		addGhost(_gomoku.getPlayer(), _gomoku.getGhost());
 	}
-	addStones(_gomoku.getBoard().getIntersections());
+	addStones(_gomoku.getBoard().getBoard());
 	drawCalls();
 
-
-	glfwSwapBuffers(_glWindow);
 	glfwPollEvents();
+	glfwSwapBuffers(_glWindow);
 	return (CONTINUE);
 }
 
@@ -112,33 +118,62 @@ void		GUIOpenGL::clearCalls(void)
 
 void		GUIOpenGL::drawCalls(void)
 {
+	Panels::viewport(0, _width, _height);
 	_board->draw();
-	glEnable(GL_BLEND);
 	_stones[WHITE]->draw();
 	_stones[BLACK]->draw();
-	glDisable(GL_BLEND);
+	Panels::viewport(_width * Panels::_centerPanel, _width, _height);
+	Panels::rightPanel(_gomoku, _font);
 }
 
 void		GUIOpenGL::addGhost(int const & turn, Intersection const & ghost)
 {
-	_stones[turn]->add(ghost.x, ghost.y, 0.7f);
+	_stones[turn]->add(ghost.coord.x, ghost.coord.y, 0.7f);
 }
 
-void		GUIOpenGL::addStones(std::vector<Intersection> const & intersections)
+void		GUIOpenGL::addStones(t_board const & intersections)
 {
-	std::vector<Intersection>::const_iterator	it;
+	t_board::const_iterator		it;
 
 	for (it = intersections.begin(); it != intersections.end(); ++it)
 	{
 		int stone = (*it).stone;
 		if (stone != NONE)
 		{
-			_stones[stone]->add((*it).x, (*it).y, 1.0f);
+			_stones[stone]->add((*it).coord.x, (*it).coord.y, 1.0f);
 		}
 	}
 }
 
 GUIOpenGL *	GUIOpenGL::_GLFW = nullptr;
+
+void		GUIOpenGL::rotate(GLfloat const & angle)
+{
+	GUIOpenGL::_GLFW->_board->rotate(angle);
+	GUIOpenGL::_GLFW->_stones[BLACK]->rotate(angle);
+	GUIOpenGL::_GLFW->_stones[WHITE]->rotate(angle);
+}
+
+void		GUIOpenGL::move(glm::vec3 const & position)
+{
+	GUIOpenGL::_GLFW->_board->move(position);
+	GUIOpenGL::_GLFW->_stones[BLACK]->move(position);
+	GUIOpenGL::_GLFW->_stones[WHITE]->move(position);
+}
+
+void		GUIOpenGL::scale(GLfloat const & delta)
+{
+	GUIOpenGL::_GLFW->_board->scale(delta);
+	GUIOpenGL::_GLFW->_stones[BLACK]->scale(delta);
+	GUIOpenGL::_GLFW->_stones[WHITE]->scale(delta);
+}
+
+void		GUIOpenGL::reset(void)
+{
+	GUIOpenGL::_GLFW->_board->reset();
+	GUIOpenGL::_GLFW->_stones[BLACK]->reset();
+	GUIOpenGL::_GLFW->_stones[WHITE]->reset();
+}
 
 void		GUIOpenGL::inputHandler(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -147,47 +182,59 @@ void		GUIOpenGL::inputHandler(GLFWwindow* window, int key, int scancode, int act
 	if (action != GLFW_PRESS && action != GLFW_REPEAT) {
 		return ;
 	}
+	GLfloat const		angle = 0.10f;
+	GLfloat const		scaleUp = 1.1f;
+	GLfloat const		scaleDown = 0.9f;
+	glm::vec3 const		position = glm::vec3(0.0f, 0.5f, 0.0f);
+	glm::vec3 const		negativePosition = glm::vec3(0.0f, -0.5f, 0.0f);
+
 	switch(key) {
 		case GLFW_KEY_ESCAPE:
 			glfwSetWindowShouldClose(window, GL_TRUE);
 			break;
 		case GLFW_KEY_LEFT:
-			GUIOpenGL::_GLFW->_model3D.setRotation(-0.10f);
+			GUIOpenGL::rotate(angle);
 			break;
 		case GLFW_KEY_RIGHT:
-			GUIOpenGL::_GLFW->_model3D.setRotation(0.10f);
+			GUIOpenGL::rotate(-angle);
 			break;
 		case GLFW_KEY_UP:
-			GUIOpenGL::_GLFW->_camera.move(glm::vec3(0.0f, 0.5f, 0.0f));
+			GUIOpenGL::move(position);
 			break;
 		case GLFW_KEY_DOWN:
-			GUIOpenGL::_GLFW->_camera.move(glm::vec3(0.0f, -0.5f, 0.0f));
+			GUIOpenGL::move(negativePosition);
 			break;
 		case GLFW_KEY_KP_ADD:
 		case GLFW_KEY_EQUAL:
-			GUIOpenGL::_GLFW->_model3D.setScale(1.1f);
+			GUIOpenGL::scale(scaleUp);
 			break;
 		case GLFW_KEY_KP_SUBTRACT:
 		case GLFW_KEY_MINUS:
-			GUIOpenGL::_GLFW->_model3D.setScale(0.9f);
+			GUIOpenGL::scale(scaleDown);
 			break;
 		case GLFW_KEY_W:
-			GUIOpenGL::_GLFW->_gomoku.moveGhost(0, -1);
+			GUIOpenGL::_GLFW->_gomoku.moveGhost(Coord(0, -1));
 			break;
 		case GLFW_KEY_A:
-			GUIOpenGL::_GLFW->_gomoku.moveGhost(-1, 0);
+			GUIOpenGL::_GLFW->_gomoku.moveGhost(Coord(-1, 0));
 			break;
 		case GLFW_KEY_S:
-			GUIOpenGL::_GLFW->_gomoku.moveGhost(0, 1);
+			GUIOpenGL::_GLFW->_gomoku.moveGhost(Coord(0, 1));
 			break;
 		case GLFW_KEY_D:
-			GUIOpenGL::_GLFW->_gomoku.moveGhost(1, 0);
+			GUIOpenGL::_GLFW->_gomoku.moveGhost(Coord(1, 0));
 			break;
 		case GLFW_KEY_ENTER:
-			GUIOpenGL::_GLFW->_gomoku.addStone();
+			GUIOpenGL::_GLFW->_gomoku.turn();
+			break;
+		case GLFW_KEY_C:
+			GUIOpenGL::_GLFW->_gomoku.reset();
 			break;
 		case GLFW_KEY_R:
-			GUIOpenGL::_GLFW->_gomoku.reset();
+			GUIOpenGL::reset();
+			break;
+		case GLFW_KEY_X:
+			GUIOpenGL::_GLFW->_gomoku.save();
 			break;
 	}
 }

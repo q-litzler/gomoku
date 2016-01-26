@@ -13,26 +13,20 @@
 #ifndef IGLOBJECT_CLASS_HPP
 # define IGLOBJECT_CLASS_HPP
 
-# include <gui/Model3D.hpp>
+# include <gui/model/Model3D.hpp>
 # include <gui/Camera.hpp>
-# include <gui/opengl/shader/GLShader.hpp>
 
 class IGLObject
 {
 	public:
-		IGLObject(Model3D & model3D, Camera & camera, GLShader const * shader):
-		_model3D(model3D), _camera(camera), _shader(shader) {};
+		IGLObject(void) {}
 		virtual			~IGLObject(void) {};
 
-		virtual void	draw(void) = 0;
-
-	protected:
-		Model3D	&			_model3D;
-		Camera	&			_camera;
-		GLShader const *	_shader;
-
-	private:
-		IGLObject(void);
+		virtual void	draw(void) const = 0;
+		virtual void	rotate(GLfloat const & angle) = 0;
+		virtual void	move(glm::vec3 const & position) = 0;
+		virtual void	scale(GLfloat const & delta) = 0;
+		virtual void	reset(void) = 0;
 };
 
 #endif /* ! IGLOBJECT_CLASS_HPP */

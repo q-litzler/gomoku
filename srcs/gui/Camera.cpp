@@ -46,7 +46,7 @@ glm::mat4		Camera::getLookAt(void) const
 	return glm::lookAt(_position, _target, _up);
 }
 
-void			Camera::setPosition(glm::vec3 position)
+void			Camera::setPosition(glm::vec3 const & position)
 {
 	_position = position;
 	_axis = glm::normalize(_position - _target);
@@ -54,17 +54,31 @@ void			Camera::setPosition(glm::vec3 position)
 	_up = glm::cross(_axis, _right);
 }
 
-void			Camera::setTarget(glm::vec3 target)
+void			Camera::setTarget(glm::vec3 const & target)
 {
 	_target = target;
+}
+
+void			Camera::reset(void)
+{
+	setPosition(glm::vec3(0.0f, 15.0f, 9.0f));
 }
 
 /*******************************************
 	Member functions
 *******************************************/
 
-void			Camera::move(glm::vec3 position)
+void			Camera::move(glm::vec3 const & position)
 {
 	_position -= position;
 	setPosition(_position);
+}
+
+/*******************************************
+	Non-Member functions
+*******************************************/
+
+Camera *		Camera::newInstance(void)
+{
+	return new Camera(glm::vec3(0.0f, 15.0f, 9.0f));
 }

@@ -16,15 +16,6 @@
 	Constructors - Destructor
 *******************************************/
 
-GLObject::GLObject(Model3D & model3D, Camera & camera, GLShader const * shader, char const * objFile):
-IGLObject(model3D, camera, shader)
-{
-	GLParser	parser(objFile);
-
-	_obj = parser.getObj();
-	_mtl = parser.getMtl();
-}
-
 GLObject::~GLObject(void)
 {
 	
@@ -37,7 +28,7 @@ GLObject::~GLObject(void)
 
 
 /*******************************************
-	Member functions
+	Non-Member functions
 *******************************************/
 
 void			GLObject::indexingBO(std::vector<GLfloat> & bo, std::vector<GLuint> & ebo, e_dimension const & dimensions)
@@ -60,6 +51,13 @@ void			GLObject::generateBO(GLuint & buffer, std::vector<GLfloat> const & bo, in
 	glGenBuffers(1, &buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
 	glBufferData(GL_ARRAY_BUFFER, size * sizeof(GLfloat), &bo[0], type);
+}
+
+void			GLObject::generateBO(GLuint & buffer, int const & size, GLenum type)
+{
+	glGenBuffers(1, &buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	glBufferData(GL_ARRAY_BUFFER, size * sizeof(GLfloat), nullptr, type);
 }
 
 void			GLObject::setBO(GLuint const & bo, GLint const & sbo, e_dimension const & dimension)

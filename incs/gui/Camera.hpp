@@ -24,10 +24,14 @@ class Camera
 		Camera(glm::vec3 const & postion);
 		~Camera(void);
 		glm::mat4		getLookAt(void) const;
-		void			setPosition(glm::vec3 position);
-		glm::vec3		getPosition() const ;
-		void			setTarget(glm::vec3 position);
-		void			move(glm::vec3 position);
+		glm::vec3		getPosition(void) const ;
+		void			setPosition(glm::vec3 const & position);
+
+		void			setTarget(glm::vec3 const & position);
+		void			move(glm::vec3 const & position);
+		void			reset(void);
+
+		static Camera *	newInstance(void);
 
 	private:
 

@@ -6,7 +6,7 @@
 /*   By: qlitzler <qlitzler@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2016/01/01 12:52:34 by qlitzler          #+#    #+#             */
-/*   Updated: 2016/01/03 22:05:06 by qlitzler         ###   ########.fr       */
+/*   Updated: 2016/01/13 15:50:07 by qlitzler         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,151 +17,161 @@
 	Constructors - Destructor
 *******************************************/
 
-Board::Board(int const & side): _side(side), _size(side * side)
+Board::Board(int const & side): _side(side)
 {
-	_board.reserve(_size);
-	for (int i = 0; i < _size; ++i)
+	int			size = _side * _side;
+
+	_board.reserve(size);
+	for (int i = 0; i < size; ++i)
 	{
-		_board.push_back(Intersection(i % _side, i / _side));
+		_board.push_back(Intersection(Coord(i % _side, i / _side)));
 	}
 }
 
 Board::~Board(void)
 {
-	
+
 }
 
 /*******************************************
 	Accessors
 *******************************************/
 
-std::vector<Intersection>	Board::getIntersections(void) const { return _board; }
-int							Board::getSide(void) const { return _side; }
+t_board		Board::getBoard(void) const { return _board; }
+int			Board::getSide(void) const { return _side; }
 
 /*******************************************
 	Member functions
 *******************************************/
 
-int		Board::addStone(int const & x, int const & y, int const & player)
+int			Board::addStone(e_player const & player, Coord const & coord)
 {
-	int		coord = normalize(x, y);
-	if (_board[coord].stone == NONE)
+	int			index = normalize(coord);
+
+	if (_board[index].stone == NONE)
 	{
-		_board[coord].stone = player;
+		_board[index].stone = player;
 		return (1);
 	}
 	return (0);
 }
 
-void	Board::clear(void)
+void		Board::removeStone(Coord const & coord)
 {
-	std::vector<Intersection>::iterator	it;
+	_board[normalize(coord)].stone = NONE;
+}
+
+void		Board::clear(void)
+{
+	t_board::iterator	it;
+
 	for (it = _board.begin(); it != _board.end(); ++it)
 	{
 		(*it).stone = NONE;
 	}
 }
 
-int		Board::victoryByAlignement(int const & x, int const & y, int const & player)
+t_direction	Board::directions(Coord const & coord, int const & range)
 {
-	if (alignement(x, y, player, 1, 0) >= 5
-		|| alignement(x, y, player, 0, 1) >= 5
-		|| alignement(x, y, player, 1, 1) >= 5
-		|| alignement(x, y, player, -1, 1) >= 5
-		)
-	{
-		return (player);
-	}
+	t_direction		directions;
 
-	return (NONE);
+	directions.reserve(4);
+	directions.push_back(direction(coord, range, -1, 0, 1, 0));
+	directions.push_back(direction(coord, range, 0, -1, 0, 1));
+	directions.push_back(direction(coord, range, -1, -1, 1, 1));
+	directions.push_back(direction(coord, range, 1, -1, -1, 1));
+	return directions;
 }
 
-int		Board::alignement(int const & x, int const & y, int const & player, int const & xNeg, int const & yNeg)
+t_matches	Board::pattern(e_pattern const & type, e_player const & player, Coord const & coord)
 {
-	int		aligned = 0;
-	int		newX = x;
-	int		newY = y;
-	int		coord;
-	int		direction = 1;
+	t_matches				matches;
+	t_matches				result;
 
-	for (int i = 0; i < _side; ++i)
+	t_patterns				patterns = Pattern::patterns[player][type].patterns;
+	t_direction				directions = this->directions(coord, Pattern::patterns[player][type].range);
+	t_direction::iterator	direction;
+
+	for (direction = directions.begin(); direction != directions.end(); ++direction)
 	{
-		coord = normalize(newX, newY);
-		if (coord < 0 || coord >= _size)
+		matches = match(patterns, *direction);
+		if (!matches.empty())
 		{
-			break ;
+			result.push_back(matches.front());	
 		}
-		if (_board[coord].stone != player)
+	}
+	return result;
+}
+
+int			Board::isLegal(e_player const & player, Coord const & coord)
+{
+	int				legals = 0;
+	int				save = _board[normalize(coord)].stone;
+
+
+	_board[normalize(coord)].stone = player;
+	legals = pattern(LEGAL, player, coord).size();
+	_board[normalize(coord)].stone = save;
+	return legals;
+}
+
+t_matches	Board::match(t_patterns const & patterns, t_board const & chunck)
+{
+	int							match;
+	t_patterns::const_iterator	pattern;
+	t_matches					result;
+
+	for (unsigned long i = 0; i < chunck.size(); ++i)
+	{
+		for (pattern = patterns.begin(); pattern != patterns.end(); ++pattern)
 		{
-			if (direction == -1)
+			match = 1;
+			for (unsigned long j = 0; j < (*pattern).size(); ++j)
 			{
-				break ;
+				if (i + j >= chunck.size() || (*pattern)[j] != chunck[i + j].stone)
+				{
+					match = 0;
+					break ;
+				}
 			}
-			direction = -1;
-			newX = x;
-			newY = y;
-		} else
-		{
-			newX += direction * xNeg;
-			newY += direction * yNeg;
-			++aligned;
-		}
-	}
-	return (aligned - 1);
-}
-
-void	Board::capture(int const & x, int const & y, int const & player, std::vector<Intersection> & captured)
-{
-	int const	points = 16;
-
-	for (int i = 0; i < points; i += 2)
-	{
-		int		targetX = x + Board::_grid[i];
-		int		targetY = y + Board::_grid[i + 1];
-
-		if (targetX < 0 || targetX > _side - 1
-			|| targetY < 0 || targetY > _side - 1)
-		{
-			continue ;
-		}
-		int const coord = normalize(targetX, targetY);
-		if (_board[coord].stone == player)
-		{
-			int		stoneX = targetX + Board::_regression[i];
-			int		stoneY = targetY + Board::_regression[i + 1];
-			int		stone1 = normalize(stoneX, stoneY);
-			int		stone2 = normalize(stoneX + Board::_regression[i], stoneY + Board::_regression[i + 1]);
-
-			if (_board[stone1].stone == !player && _board[stone2].stone == !player)
+			if (match == 1)
 			{
-				removeStone(stoneX, stoneY, captured);
-				removeStone(stoneX + Board::_regression[i], stoneY + Board::_regression[i + 1], captured);
+				result.push_back(t_board(chunck.begin() + i, chunck.end()));
 			}
 		}
 	}
+	return (result);
 }
 
-int		Board::normalize(int const & x, int const & y)
+t_board		Board::direction(Coord const & coord, int const & range, int const & xRange, int const & yRange, int const & dirX, int const & dirY)
+{
+	t_board		diagonal;
+
+	int			index;
+	int const	doubleRange = range * 2 + 1;
+	int			newX = coord.x + range * xRange;
+	int			newY = coord.y + range * yRange;
+
+	diagonal.reserve(doubleRange);
+	for (int i = 0; i < doubleRange; ++i)
+	{
+		if (newX >= 0 && newX < _side && newY >= 0 && newY < _side)
+		{
+			index = normalize(newX, newY);
+			diagonal.push_back(_board[index]);
+		}
+		newY += dirY;
+		newX += dirX;
+	}
+	return diagonal;
+}
+
+int			Board::normalize(int const & x, int const & y)
 {
 	return y * _side + x;
 }
 
-void	Board::removeStone(int const & x, int const & y, std::vector<Intersection> & captured)
+int			Board::normalize(Coord const & coord)
 {
-	_board[normalize(x, y)].stone = NONE;
-	captured.push_back(Intersection(x, y));
+	return coord.y * _side + coord.x;
 }
-
-int		Board::_grid[16] = {
-	-3, -3, 0, -3, 3, -3,
-	3, 0,
-	3, 3, 0, 3, -3, 3,
-	-3, 0
-};
-
-int		Board::_regression[16] = {
-	1, 1, 0, 1, -1, 1,
-	-1, 0,
-	-1, -1, 0, -1, 1, -1,
-	1, 0
-};
